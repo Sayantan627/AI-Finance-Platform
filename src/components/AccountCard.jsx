@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowUpRight } from "lucide-react";
 import {
   Card,
@@ -9,9 +11,45 @@ import {
 import { Switch } from "./ui/switch";
 import { ArrowDownRight } from "lucide-react";
 import Link from "next/link";
+import useFetch from "@/hooks/use-fetch";
+import { updateDefaultAccount } from "@/actions/account";
+import { toast } from "sonner";
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 const AccountCard = ({ account }) => {
   const { name, id, type, balance, isDefault } = account;
+
+  const {
+    data: updatedAccount,
+    error,
+    fn: updateDefaultAccountFn,
+    loading: updateDefaultAccountLoading,
+  } = useFetch(updateDefaultAccount);
+
+  const handleDefaultChange = async (event) => {
+    event.preventDefault();
+
+    if (isDefault) {
+      toast.warning("At least 1 account should be default");
+      return;
+    }
+
+    await updateDefaultAccountFn(id);
+  };
+
+  useEffect(() => {
+    if (updatedAccount?.success && !updateDefaultAccountLoading) {
+      toast.success("Your default account updated");
+    }
+  }, [updatedAccount, updateDefaultAccountLoading]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Failed to update default account");
+    }
+  }, [error]);
+
   return (
     <Card className="hover:shadow-md transition-shadow group relative">
       <Link href={`account/${id}`}>
@@ -19,7 +57,15 @@ const AccountCard = ({ account }) => {
           <CardTitle className="text-sm font-medium capitalize">
             {name}
           </CardTitle>
-          <Switch checked={isDefault} />
+          {updateDefaultAccountLoading ? (
+            <Loader2 className="animate-spin h-4 w-4 mr-2" />
+          ) : (
+            <Switch
+              checked={isDefault}
+              onClick={handleDefaultChange}
+              disabled={updateDefaultAccountLoading}
+            />
+          )}
         </CardHeader>
         <CardContent>
           <div className="font-bold text-2xl">
