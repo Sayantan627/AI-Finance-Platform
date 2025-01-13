@@ -31,6 +31,9 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { ChevronUp } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 const RECURRING_INTERVALS = {
   DAILY: "Daily",
@@ -41,8 +44,19 @@ const RECURRING_INTERVALS = {
 
 const TransactionTable = ({ transactions }) => {
   const router = useRouter();
+
+  const [sortConfig, setSortConfig] = useState({
+    field: "date",
+    direction: "desc",
+  });
   const filteredAndSortedTransactions = transactions;
-  const handleSort = (type) => {};
+  const handleSort = (field) => {
+    setSortConfig((current) => ({
+      field,
+      direction:
+        current.field === field && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -57,22 +71,46 @@ const TransactionTable = ({ transactions }) => {
               </TableHead>
               <TableHead
                 className="cursor-pointer"
-                onClick={handleSort("date")}
+                onClick={() => handleSort("date")}
               >
-                <div className="flex items-center">Date</div>
+                <div className="flex items-center">
+                  Date{" "}
+                  {sortConfig.field === "date" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    ))}
+                </div>
               </TableHead>
               <TableHead>Description</TableHead>
               <TableHead
                 className="cursor-pointer"
-                onClick={handleSort("category")}
+                onClick={() => handleSort("category")}
               >
-                <div className="flex items-center">Category</div>
+                <div className="flex items-center">
+                  Category{" "}
+                  {sortConfig.field === "category" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    ))}
+                </div>
               </TableHead>
               <TableHead
                 className="cursor-pointer"
-                onClick={handleSort("amount")}
+                onClick={() => handleSort("amount")}
               >
-                <div className="flex justify-end">Amount</div>
+                <div className="flex justify-end">
+                  Amount{" "}
+                  {sortConfig.field === "amount" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    ))}
+                </div>
               </TableHead>
               <TableHead>Recurring</TableHead>
               <TableHead className="w-[50px]" />
