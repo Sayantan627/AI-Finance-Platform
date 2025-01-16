@@ -98,7 +98,7 @@ model Budget {
   amount        Decimal
   lastAlertSent DateTime?
   userId        String    @unique
-  User          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
