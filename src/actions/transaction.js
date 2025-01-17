@@ -1,3 +1,5 @@
+"use server";
+
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
@@ -49,7 +51,7 @@ export const createTransaction = async (data) => {
 
       await tx.account.update({
         where: {
-          accountId: data.accountId,
+          id: data.accountId,
         },
         data: {
           balance: newBalance,
