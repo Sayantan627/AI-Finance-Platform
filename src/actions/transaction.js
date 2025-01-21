@@ -1,6 +1,8 @@
 "use server";
 
+import aj from "@/lib/arcjet";
 import { db } from "@/lib/prisma";
+import { request } from "@arcjet/next";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
@@ -15,6 +17,26 @@ export const createTransaction = async (data) => {
     if (!userId) throw new Error("Unauthorized");
 
     // Limit the number of transactions a user can create per day using Arcjet Rate Limiting
+    const req = await request();
+
+    const decision = await aj.protect(req, {
+      userId,
+      requested: 1,
+    });
+
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        const { reset, remaining } = decision.reason;
+        console.error({
+          code: "RATE_LIMIT_EXCEEDED",
+          remaining,
+          resetInSeconds: reset,
+        });
+
+        throw new Error("Too many requests, please try again later");
+      }
+      throw new Error("Request blocked");
+    }
 
     const user = await db.user.findUnique({
       where: {
