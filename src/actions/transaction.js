@@ -147,8 +147,8 @@ export const scanReceipt = async (file) => {
           data: base64String,
           mimeType: file.type,
         },
-        prompt,
       },
+      prompt,
     ]);
     const response = await result.response;
     const text = response.candidates.text();
