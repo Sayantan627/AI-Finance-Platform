@@ -151,7 +151,7 @@ export const scanReceipt = async (file) => {
       prompt,
     ]);
     const response = await result.response;
-    const text = response.candidates.text();
+    const text = response.text();
 
     const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
 
