@@ -2,6 +2,7 @@ import { sendEmail } from "@/actions/send-email";
 import { inngest } from "./client";
 import { db } from "@/lib/prisma";
 import EmailTemplate from "../../../emails/template";
+import { createNextRecurringDate } from "../utils";
 
 export const checkBudgetAlerts = inngest.createFunction(
   { name: "Check Budget Alerts" },
@@ -90,7 +91,7 @@ function isNewMonth(lastAlertDate, currentDate) {
 export const triggerRecurringTransactions = inngest.createFunction(
   {
     id: "trigger-recurring-transactions",
-    name: "Trigger Recurring TRansactions",
+    name: "Trigger Recurring Transactions",
   },
   {
     cron: "0 0 * * *",
@@ -210,24 +211,4 @@ const isTransactionDue = (transaction) => {
   const today = new Date();
   const nextDate = new Date(transaction.nextRecurringDate);
   return nextDate <= today;
-};
-
-const createNextRecurringDate = (currDate, recurringInterval) => {
-  const date = new Date(currDate);
-  switch (recurringInterval) {
-    case "DAILY":
-      date.setDate(date.getDate() + 1);
-      break;
-    case "WEEKLY":
-      date.setDate(date.getDate() + 7);
-      break;
-    case "MONTHLY":
-      date.setMonth(date.getMonth() + 1);
-      break;
-    case "YEARLY":
-      date.setFullYear(date.getFullYear() + 1);
-      break;
-  }
-
-  return date;
 };
