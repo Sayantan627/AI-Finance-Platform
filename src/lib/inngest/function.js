@@ -3,6 +3,7 @@ import { inngest } from "./client";
 import { db } from "@/lib/prisma";
 import EmailTemplate from "../../../emails/template";
 import { createNextRecurringDate } from "../utils";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const checkBudgetAlerts = inngest.createFunction(
   { name: "Check Budget Alerts" },
@@ -211,4 +212,122 @@ const isTransactionDue = (transaction) => {
   const today = new Date();
   const nextDate = new Date(transaction.nextRecurringDate);
   return nextDate <= today;
+};
+
+export const generateMonthlyReports = inngest.createFunction(
+  {
+    id: "generate-monthly-reports",
+    name: "Generate Monthly Reports",
+  },
+  { cron: "0 0 1 * *" },
+  async ({ step }) => {
+    const users = await step.run("fetch-users", async () => {
+      return await db.user.findMany({
+        include: { accounts: true },
+      });
+    });
+
+    for (const user of users) {
+      await step.run(`generate-reports-${user.id}`, async () => {
+        const lastMonth = new Date();
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+        const stats = await getMonthlyStats(user.id, lastMonth);
+        const monthName = lastMonth.toLocaleString("default", {
+          month: "long",
+        });
+
+        const insights = await generateFinInsights(stats, monthName);
+
+        await sendEmail({
+          to: user.email,
+          subject: `Your Monthly Financial Report - ${monthName}`,
+          react: EmailTemplate({
+            userName: user.name,
+            type: "monthly-report",
+            data: {
+              stats,
+              month: monthName,
+              insights,
+            },
+          }),
+        });
+      });
+    }
+
+    return { processed: users.length };
+  }
+);
+
+const generateFinInsights = async (stats, monthName) => {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Analyze this financial data and provide 3 concise, actionable insights.
+    Focus on spending patterns and practical advice.
+    Keep it friendly and conversational.
+
+    Financial Data for ${monthName}:
+    - Total Income: $${stats.totalIncome}
+    - Total Expenses: $${stats.totalExpenses}
+    - Net Income: $${stats.totalIncome - stats.totalExpenses}
+    - Expense Categories: ${Object.entries(stats.byCategory)
+      .map(([category, amount]) => `${category}: $${amount}`)
+      .join(", ")}
+
+    Format the response as a JSON array of strings, like this:
+    ["insight 1", "insight 2", "insight 3"]`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
+
+    return JSON.parse(cleanedText);
+  } catch (error) {
+    console.error("Error generating insights:", error);
+    return [
+      "Your highest expense category this month might need attention.",
+      "Consider setting up a budget for better financial management.",
+      "Track your recurring expenses to identify potential savings.",
+    ];
+  }
+};
+
+const getMonthlyStats = async (userId, lastMonth) => {
+  const startDate = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+  const endDate = new Date(
+    lastMonth.getFullYear(),
+    lastMonth.getMonth() + 1,
+    0
+  );
+
+  const transactions = await db.transaction.findMany({
+    where: {
+      userId,
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+  });
+
+  return transactions.reduce(
+    (stats, t) => {
+      const amount = t.amount.toNumber();
+      if (t.type === "EXPENSE") {
+        stats.totalExpenses += amount;
+        stats.byCategory[t.category] =
+          (stats.byCategory[t.category] || 0) + amount;
+      } else {
+        stats.totalIncome += amount;
+      }
+      return stats;
+    },
+    {
+      totalExpenses: 0,
+      totalIncome: 0,
+      byCategory: {},
+      transactionCount: transactions.length,
+    }
+  );
 };
