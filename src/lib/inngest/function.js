@@ -86,3 +86,148 @@ function isNewMonth(lastAlertDate, currentDate) {
     lastAlertDate.getFullYear() !== currentDate.getFullYear()
   );
 }
+
+export const triggerRecurringTransactions = inngest.createFunction(
+  {
+    id: "trigger-recurring-transactions",
+    name: "Trigger Recurring TRansactions",
+  },
+  {
+    cron: "0 0 * * *",
+  },
+  async ({ step }) => {
+    // fetch recurring transactions
+    const recurringTransactions = await step.run(
+      "fetch-recurring-transactions",
+      async () => {
+        return await db.transaction.findMany({
+          where: {
+            isRecurring: true,
+            status: "COMPLETED",
+            OR: [
+              { lastProcessed: null },
+              { nextRecurringDate: { lte: new Date() } },
+            ],
+          },
+        });
+      }
+    );
+
+    // create events for each recurring transaction
+    if (recurringTransactions.length > 0) {
+      const events = recurringTransactions.map((transaction) => ({
+        name: "transaction.recurring.process",
+        data: { transactionId: transaction.id, userId: transaction.userId },
+      }));
+
+      await inngest.send(events);
+    }
+
+    return { triggered: recurringTransactions.length };
+  }
+);
+
+export const processRecurringTransactions = inngest.createFunction(
+  {
+    id: "process-recurring-transactions",
+    name: "Process Recurring Transaction",
+    throttle: {
+      limit: 10,
+      period: "1m",
+      key: "event.data.userId",
+    },
+  },
+  { event: "transaction.recurring.process" },
+  async ({ event, step }) => {
+    if (!event?.data?.transactionId || !event?.data?.userId) {
+      console.error("Invalid event data:", event);
+      return { error: "Missing event data" };
+    }
+    await step.run("process-transaction", async () => {
+      const transaction = await db.transaction.findUnique({
+        where: {
+          id: event.data.transactionId,
+          userId: event.data.userId,
+        },
+        include: {
+          account: true,
+        },
+      });
+
+      if (!transaction || !isTransactionDue(transaction)) return;
+
+      await db.$transaction(async (tx) => {
+        // create transaction
+        await tx.transaction.create({
+          data: {
+            type: transaction.type,
+            amount: transaction.amount,
+            description: `${transaction.description} (Recurring)`,
+            date: new Date(),
+            category: transaction.category,
+            userId: transaction.userId,
+            accountId: transaction.accountId,
+            isRecurring: false,
+          },
+        });
+        // update balance
+        const balanceChange =
+          transaction.type === "EXPENSE"
+            ? -transaction.amount.toNumber()
+            : transaction.amount.toNumber();
+
+        await tx.account.update({
+          where: {
+            id: transaction.accountId,
+          },
+          data: {
+            balance: { increment: balanceChange },
+          },
+        });
+
+        // update last processed date and next recurring date
+        await tx.transaction.update({
+          where: {
+            id: transaction.id,
+          },
+          data: {
+            lastProcessed: new Date(),
+            nextRecurringDate: createNextRecurringDate(
+              new Date(),
+              transaction.recurringInterval
+            ),
+          },
+        });
+      });
+    });
+  }
+);
+
+const isTransactionDue = (transaction) => {
+  if (!transaction.lastProcessed) {
+    return true;
+  }
+  const today = new Date();
+  const nextDate = new Date(transaction.nextRecurringDate);
+  return nextDate <= today;
+};
+
+const createNextRecurringDate = (currDate, recurringInterval) => {
+  const date = new Date(currDate);
+  switch (recurringInterval) {
+    case "DAILY":
+      date.setDate(date.getDate() + 1);
+      break;
+    case "WEEKLY":
+      date.setDate(date.getDate() + 7);
+      break;
+    case "MONTHLY":
+      date.setMonth(date.getMonth() + 1);
+      break;
+    case "YEARLY":
+      date.setFullYear(date.getFullYear() + 1);
+      break;
+  }
+
+  return date;
+};
