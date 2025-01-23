@@ -122,7 +122,7 @@ const DashboardOverview = ({ accounts, transactions }) => {
                       ) : (
                         <ArrowUpRight className="h-4 w-4 mr-1" />
                       )}
-                      ${t.amount.toFixed(2)}
+                      ₹{t.amount.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ const DashboardOverview = ({ accounts, transactions }) => {
                     outerRadius={50}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, value }) => `${name}: $${value.toFixed(2)}`}
+                    label={({ name, value }) => `${name}: ₹${value.toFixed(2)}`}
                   >
                     {pieChartData.map((entry, index) => (
                       <Cell
