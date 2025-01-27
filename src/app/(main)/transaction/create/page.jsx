@@ -3,7 +3,8 @@ import { getTransaction } from "@/actions/transaction";
 import AddTransactionForm from "@/components/AddTransactionForm";
 import { defaultCategories } from "@/data/categories";
 
-const AddTransactionPage = async ({ searchParams }) => {
+const AddTransactionPage = async props => {
+  const searchParams = await props.searchParams;
   const accounts = await getUserAccounts();
   const editId = await searchParams?.id;
 
