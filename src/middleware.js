@@ -1,6 +1,7 @@
 import arcjet, { shield, detectBot } from "@arcjet/next";
 import { createMiddleware } from "@arcjet/next";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
@@ -13,6 +14,8 @@ const clerk = clerkMiddleware(async (auth, req) => {
   if (!userId && isProtectedRoute(req)) {
     return redirectToSignIn();
   }
+
+  return NextResponse.next();
 });
 
 const aj = arcjet({

@@ -13,7 +13,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <ClerkProvider dynamic>
+    <ClerkProvider>
       <html lang="en">
         <body className={`${inter.className} antialiased`}>
           {/* header */}
