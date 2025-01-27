@@ -5,7 +5,7 @@ import { defaultCategories } from "@/data/categories";
 
 const AddTransactionPage = async ({ searchParams }) => {
   const accounts = await getUserAccounts();
-  const { edit: editId } = await searchParams;
+  const editId = await searchParams?.id;
 
   let initialData = null;
   if (editId) {
