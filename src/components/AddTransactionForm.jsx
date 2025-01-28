@@ -83,7 +83,7 @@ const AddTransactionForm = ({
   const filteredCategories = categories.filter((cat) => cat.type === type);
 
   useEffect(() => {
-    if (transactionResult && !transactionLoading) {
+    if (transactionResult?.success && !transactionLoading) {
       toast.success(
         editMode
           ? "Transaction updated successfully"
